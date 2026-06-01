@@ -1,0 +1,67 @@
+name: Build FlClash TV APK
+
+on:
+  push:
+    branches: [ "tv-remote-support", "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:  # 手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: 🔧 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: 'stable'
+          cache: true
+
+      - name: 🔧 Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: 📦 Install Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 📦 Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake libayatana-appindicator3-dev libkeybinder-3.0-dev
+          flutter config --enable-linux-desktop 2>/dev/null || true
+
+      - name: 📦 Flutter pub get
+        run: flutter pub get
+
+      - name: 🏗️ Build Android APK
+        run: |
+          if [ -f "setup.dart" ]; then
+            dart setup.dart android --release
+          else
+            flutter build apk --release
+          fi
+
+      - name: 📤 Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlClash-TV-APK
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/apk/release/*.apk
+          if-no-files-found: warn
+
+      - name: 📤 Upload app bundle
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlClash-TV-AAB
+          path: build/app/outputs/bundle/release/*.aab
+          if-no-files-found: ignore
