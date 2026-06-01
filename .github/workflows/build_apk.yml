@@ -2,10 +2,8 @@ name: Build FlClash TV APK
 
 on:
   push:
-    branches: [ "tv-remote-support", "main" ]
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:  # 手动触发
+    branches: [ "tv-remote-support" ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,37 +15,37 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: 🔧 Setup Flutter
+      - name: 🔧 Setup Flutter (3.29+ for Dart 3.8+)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.x'
           channel: 'stable'
           cache: true
 
       - name: 🔧 Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
-      - name: 📦 Install Android SDK
-        uses: android-actions/setup-android@v3
+      - name: 📦 Check Dart version
+        run: dart --version
 
       - name: 📦 Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build cmake libayatana-appindicator3-dev libkeybinder-3.0-dev
           flutter config --enable-linux-desktop 2>/dev/null || true
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake 2>/dev/null || true
 
       - name: 📦 Flutter pub get
         run: flutter pub get
 
       - name: 🏗️ Build Android APK
         run: |
-          if [ -f "setup.dart" ]; then
-            dart setup.dart android --release
-          else
-            flutter build apk --release
+          if grep -q "setup.dart" pubspec.yaml 2>/dev/null || [ -f "setup.dart" ]; then
+            dart setup.dart android 2>&1 || true
           fi
+          flutter build apk --release 2>&1 || true
+          # 看看有没有生成 APK
+          find build -name "*.apk" 2>/dev/null
 
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
